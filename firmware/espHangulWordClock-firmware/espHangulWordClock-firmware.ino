@@ -262,9 +262,9 @@ void loop()
       bSeoul = true;
     }
     if(counter%120<5){
-      showDate();
+      showDate(bSeoul);
     }else{
-      showTime();
+      showTime(bSeoul);
     }
 
     //give some feedback over serial every 10 seconds
