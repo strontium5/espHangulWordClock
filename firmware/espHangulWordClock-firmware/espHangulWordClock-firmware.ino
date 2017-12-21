@@ -2,58 +2,38 @@
 #include "masks.h"
 #include <SPI.h>
 
+#include <TimeLib.h>
+//#include "WifiConfig.h"
+#include <NtpClientLib.h>
+#include <ESP8266WiFi.h>
+
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
+
 #define PIN_CLOCK  14
 #define PIN_DATA_A  12
-#define	PIN_DATA_B  13
+#define  PIN_DATA_B  13
 #define PIN_STROBE 05
 
-
-#define SYMBOL_COUNT 38
-//byte width should be 32 eventually; but may reduce by 4 if combine leds
-
-
-
+//#ifndef WIFI_CONFIG_H
+//#define YOUR_WIFI_SSID "YOUR_WIFI_SSID"
+//#define YOUR_WIFI_PASSWD "YOUR_WIFI_PASSWD"
+//#endif // !WIFI_CONFIG_H
 
 
+void onSTAGotIP(WiFiEventStationModeGotIP ipInfo) {
+  Serial.printf("Got IP: %s\r\n", ipInfo.ip.toString().c_str());
+  NTP.begin("pool.ntp.org", 1, true);
+  NTP.setInterval(63);
+  //digitalWrite(2, LOW);
+}
 
-unsigned char disp2[SYMBOL_COUNT][BYTE_COUNT] = {
-  {0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C}, //0
-  {0x10, 0x30, 0x50, 0x10, 0x10, 0x10, 0x10, 0x10}, //1
-  {0x7E, 0x02, 0x02, 0x7E, 0x40, 0x40, 0x40, 0x7E}, //2
-  {0x3E, 0x02, 0x02, 0x3E, 0x02, 0x02, 0x3E, 0x00}, //3
-  {0x08, 0x18, 0x28, 0x48, 0xFE, 0x08, 0x08, 0x08}, //4
-  {0x3C, 0x20, 0x20, 0x3C, 0x04, 0x04, 0x3C, 0x00}, //5
-  {0x3C, 0x20, 0x20, 0x3C, 0x24, 0x24, 0x3C, 0x00}, //6
-  {0x3E, 0x22, 0x04, 0x08, 0x08, 0x08, 0x08, 0x08}, //7
-  {0x00, 0x3E, 0x22, 0x22, 0x3E, 0x22, 0x22, 0x3E}, //8
-  {0x3E, 0x22, 0x22, 0x3E, 0x02, 0x02, 0x02, 0x3E}, //9
-  {0x08, 0x14, 0x22, 0x3E, 0x22, 0x22, 0x22, 0x22}, //A
-  {0x3C, 0x22, 0x22, 0x3E, 0x22, 0x22, 0x3C, 0x00}, //B
-  {0x3C, 0x40, 0x40, 0x40, 0x40, 0x40, 0x3C, 0x00}, //C
-  {0x7C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x7C, 0x00}, //D
-  {0x7C, 0x40, 0x40, 0x7C, 0x40, 0x40, 0x40, 0x7C}, //E
-  {0x7C, 0x40, 0x40, 0x7C, 0x40, 0x40, 0x40, 0x40}, //F
-  {0x3C, 0x40, 0x40, 0x40, 0x40, 0x44, 0x44, 0x3C}, //G
-  {0x44, 0x44, 0x44, 0x7C, 0x44, 0x44, 0x44, 0x44}, //H
-  {0x7C, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x7C}, //I
-  {0x3C, 0x08, 0x08, 0x08, 0x08, 0x08, 0x48, 0x30}, //J
-  {0x00, 0x24, 0x28, 0x30, 0x20, 0x30, 0x28, 0x24}, //K
-  {0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x7C}, //L
-  {0x81, 0xC3, 0xA5, 0x99, 0x81, 0x81, 0x81, 0x81}, //M
-  {0x00, 0x42, 0x62, 0x52, 0x4A, 0x46, 0x42, 0x00}, //N
-  {0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C}, //O
-  {0x3C, 0x22, 0x22, 0x22, 0x3C, 0x20, 0x20, 0x20}, //P
-  {0x1C, 0x22, 0x22, 0x22, 0x22, 0x26, 0x22, 0x1D}, //Q
-  {0x3C, 0x22, 0x22, 0x22, 0x3C, 0x24, 0x22, 0x21}, //R
-  {0x00, 0x1E, 0x20, 0x20, 0x3E, 0x02, 0x02, 0x3C}, //S
-  {0x00, 0x3E, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08}, //T
-  {0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x22, 0x1C}, //U
-  {0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x24, 0x18}, //V
-  {0x00, 0x49, 0x49, 0x49, 0x49, 0x2A, 0x1C, 0x00}, //W
-  {0x00, 0x41, 0x22, 0x14, 0x08, 0x14, 0x22, 0x41}, //X
-  {0x41, 0x22, 0x14, 0x08, 0x08, 0x08, 0x08, 0x08}, //Y
-  {0x00, 0x7F, 0x02, 0x04, 0x08, 0x10, 0x20, 0x7F}, //Z
-};
+void onSTADisconnected(WiFiEventStationModeDisconnected event_info) {
+  Serial.printf("Disconnected from SSID: %s\n", event_info.ssid.c_str());
+  Serial.printf("Reason: %d\n", event_info.reason);
+  //digitalWrite(2, HIGH);
+}
 
 /*
  * Like shiftOut, but uses 1 clock for 2 data lines at same time
@@ -78,12 +58,87 @@ void shiftOutDual(uint8_t clockPin, uint8_t dataPinA, uint8_t dataPinB, uint8_t 
   }
 }
 
-void writeDay(dateTime dt)
-{
-  
+uint8_t _mask[] = {0,0,0,0,0,0,0,0};
+
+void addMask(uint8_t maskToAdd[]){
+  for(int i=0;i<BYTE_COUNT;i++){
+    _mask[i] = _mask[i] | maskToAdd[i];
+  }
 }
 
-void writeTime()
+void resetMask(){
+  for(int i=0;i<BYTE_COUNT;i++){
+    _mask[i] = 0;
+  }
+}
+
+void showDate(bool bSeoul=false)
+{
+  time_t tTime = NTP.getTime();
+  resetMask();
+  
+  if(bSeoul){
+    addMask(masksCore[MASK_SEOUL]);
+  }
+  
+  addMask(masksCore[MASK_TODAY]);
+
+  addMask(masksWeekday[weekday(tTime)-1]);//sunday,monday...
+  
+  //NB there is a known issue with November and day of week overlap
+  if(month(tTime)>9){
+    addMask(masksNumbersB[10]);//10s
+  }
+  addMask(masksNumbersB[(month(tTime)%10)]);//0,1,2,3,4..
+  addMask(masksCore[MASK_MONTH]);
+
+  if(day(tTime)>10){
+    addMask(masksNumbersC[9+(day(tTime)/10)]);//10s,20s,30s
+  }
+  addMask(masksNumbersC[(day(tTime)%10)]);//0,1,2,3,4..
+  addMask(masksCore[MASK_DAY]);
+  
+  addMask(masksCore[MASK_COPULA]);
+  writeToMatrix(_mask);
+}
+
+void showTime(bool bSeoul=false){
+  time_t tTime = NTP.getTime();
+  resetMask();
+  
+  if(bSeoul){
+    addMask(masksCore[MASK_SEOUL]);
+  }
+  
+  addMask(masksCore[MASK_NOW]);
+  if(hour(tTime)>12){
+    addMask(masksCore[MASK_PM]);
+  }
+  else{
+    addMask(masksCore[MASK_AM]);
+  }
+  
+  if(hour(tTime)%12>10){
+    addMask(masksNumbersA[10]);//10s
+  }
+  addMask(masksNumbersC[((hour(tTime)%12)%10)]);//0,1,2,3,4..
+  addMask(masksCore[MASK_HOUR]);
+
+  if(minute(tTime)>10){
+    addMask(masksNumbersB[9+(minute(tTime)/10)]);//10s,20s,30s,40s,50s
+  }
+  addMask(masksNumbersB[(minute(tTime)%10)]);//0,1,2,3,4..
+  addMask(masksCore[MASK_MINUTE]);
+  
+  if(second(tTime)>10){
+    addMask(masksNumbersC[9+(second(tTime)/10)]);//10s,20s,30s,40s,50s
+  }
+  addMask(masksNumbersC[(second(tTime)%10)]);//0,1,2,3,4..
+  addMask(masksCore[MASK_SECOND]);
+  addMask(masksCore[MASK_COPULA]);
+  
+  writeToMatrix(_mask);
+}
 
 /*
  * takes in 256 bits to write to the display
@@ -123,33 +178,107 @@ void writeToMatrix(uint8_t mask[])
 
 void setup()
 {
+  static WiFiEventHandler e1, e2;
+  Serial.begin(115200);
+  
   pinMode(PIN_CLOCK, OUTPUT);
   pinMode(PIN_DATA_A, OUTPUT);
   pinMode(PIN_DATA_B, OUTPUT);
   pinMode(PIN_STROBE, OUTPUT);
+  //analogWrite(PIN_STROBE, 192);
+  digitalWrite(PIN_STROBE, HIGH);
 
-  //SPI.begin();
 
-  analogWrite(PIN_STROBE, 192);
+//  static WiFiEventHandler e1, e2;
+//
+//  Serial.begin(115200);
+//  WiFi.mode(WIFI_STA);
+//  WiFi.begin(YOUR_WIFI_SSID, YOUR_WIFI_PASSWD);
+//  pinMode(2, OUTPUT);
+//  digitalWrite(2, HIGH);
 
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  //reset settings - for testing
+  //wifiManager.resetSettings();
+
+  //sets timeout until configuration portal gets turned off
+  //useful to make it all retry or go to sleep
+  //in seconds
+  wifiManager.setTimeout(180);
+  
+  //fetches ssid and pass and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //here  "AutoConnectAP"
+  //and goes into a blocking loop awaiting configuration
+  if(!wifiManager.autoConnect("HangulClockAP")) {
+    Serial.println("failed to connect and hit timeout");
+    delay(3000);
+    //reset and try again, or maybe put it to deep sleep
+    ESP.reset();
+    delay(5000);
+  } 
+
+  //if you get here you have connected to the WiFi
+  Serial.println("connected...yeey :)");
+
+
+  
+  NTP.onNTPSyncEvent([](NTPSyncEvent_t ntpEvent) {
+    if (ntpEvent) {
+      Serial.print("Time Sync error: ");
+      if (ntpEvent == noResponse)
+        Serial.println("NTP server not reachable");
+      else if (ntpEvent == invalidAddress)
+        Serial.println("Invalid NTP server address");
+    }
+    else {
+      Serial.print("Got NTP time: ");
+      Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
+    }
+  });
+  WiFi.onEvent([](WiFiEvent_t e) {
+    Serial.printf("Event wifi -----> %d\n", e);
+  });
+  e1 = WiFi.onStationModeGotIP(onSTAGotIP);// As soon WiFi is connected, start NTP Client
+  e2 = WiFi.onStationModeDisconnected(onSTADisconnected);
+  
 }
+
 
 void loop()
 {
-  //  byte randByte = (byte)random(-127,128);
-  //  shiftOut(PIN_DATA_A, PIN_CLOCK, MSBFIRST, randByte);
-  //
-  //  delay(100);
-
-  for (int j = 0; j < SYMBOL_COUNT; j++)
-  {
-    for (int k = 0; k < 4; k++) {
-      for (int i = 0; i < BYTE_COUNT; i++)
-      {
-        shiftOut(PIN_DATA_A, PIN_CLOCK, MSBFIRST, disp2[j][i]);
-        //SPI.transfer(disp2[j][i]);
-      }
+  static uint16_t counter = 0;
+  static uint32_t lastMillis = 0;
+  
+  //every 1 second show the time
+  //every 120 seconds, show the date for 5 seconds
+  //every 600 seconds, show Seoul time and date for 120 seconds
+  if ((millis() - lastMillis) > 1000) {
+    lastMillis = millis();
+    bool bSeoul = false;
+    if(counter%600<120){
+      bSeoul = true;
     }
-    delay(1000); //wait half a second
+    if(counter%120<5){
+      showDate();
+    }else{
+      showTime();
+    }
+
+    //give some feedback over serial every 10 seconds
+    if(!(counter%10)){
+      Serial.print(counter); Serial.print(" ");
+      Serial.print(NTP.getTimeDateString()); Serial.print(" ");
+      Serial.print(NTP.isSummerTime() ? "Summer Time. " : "Winter Time. ");
+      Serial.print("WiFi is ");
+      Serial.print(WiFi.isConnected() ? "connected" : "not connected"); Serial.print(". ");
+      Serial.print("Uptime: ");
+      Serial.print(NTP.getUptimeString()); Serial.print(" since ");
+      Serial.println(NTP.getTimeDateString(NTP.getFirstSync()).c_str());
+    }
+    
+    counter++;
   }
 }
