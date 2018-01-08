@@ -24,8 +24,16 @@
 
 void onSTAGotIP(WiFiEventStationModeGotIP ipInfo) {
   Serial.printf("Got IP: %s\r\n", ipInfo.ip.toString().c_str());
-  NTP.begin("pool.ntp.org", 1, true);
+  NTP.begin("us.pool.ntp.org", 1, true);
   NTP.setInterval(63);
+  //digitalWrite(2, LOW);
+}
+
+void onSTAGotIP2() {
+//  Serial.printf("Got IP: %s\r\n", ipInfo.ip.toString().c_str());
+  NTP.begin("us.pool.ntp.org", 1, true);
+  NTP.setInterval(63);
+  NTP.setTimeZone(-5);
   //digitalWrite(2, LOW);
 }
 
@@ -72,8 +80,27 @@ void resetMask(){
   }
 }
 
+void printBits(byte myByte){
+ for(byte mask = 0x80; mask; mask >>= 1){
+   if(mask  & myByte)
+       Serial.print('1');
+   else
+       Serial.print('0');
+ }
+}
+
+void printMask(){
+  Serial.println("--------");
+  for(int i=0;i<BYTE_COUNT;i++){
+    printBits(_mask[i]);
+    Serial.println();
+  }
+  Serial.println("--------");
+}
+
 void showDate(bool bSeoul=false)
 {
+  //Serial.println("showDate()");
   time_t tTime = NTP.getTime();
   resetMask();
   
@@ -103,6 +130,7 @@ void showDate(bool bSeoul=false)
 }
 
 void showTime(bool bSeoul=false){
+  //Serial.println("showTime()");
   time_t tTime = NTP.getTime();
   resetMask();
   
@@ -118,10 +146,10 @@ void showTime(bool bSeoul=false){
     addMask(masksCore[MASK_AM]);
   }
   
-  if(hour(tTime)%12>10){
+  if((hour(tTime)%12)>10){
     addMask(masksNumbersA[10]);//10s
   }
-  addMask(masksNumbersC[((hour(tTime)%12)%10)]);//0,1,2,3,4..
+  addMask(masksNumbersA[((hour(tTime)%12)%10)]);//0,1,2,3,4..
   addMask(masksCore[MASK_HOUR]);
 
   if(minute(tTime)>10){
@@ -140,53 +168,69 @@ void showTime(bool bSeoul=false){
   writeToMatrix(_mask);
 }
 
+void showTest(){
+  static int a = 0;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < BYTE_COUNT; j++)
+    {
+      shiftOut(PIN_DATA_A, PIN_CLOCK, MSBFIRST, letters[a][j]);
+      //SPI.transfer(disp2[j][i]);
+    }
+  }
+  a = (a+1)%SYMBOL_COUNT;
+}
+
 /*
  * takes in 256 bits to write to the display
  */
 void writeToMatrix(uint8_t mask[])
 {
+  //printMask();
   uint8_t _lineA;//left half of a row goes in first
   uint8_t _lineB;
-
+  
   for (int i = 7; i >=0; i--) {
     _lineA = 0;
     _lineA = 
-    ((mask[0] & (1<<i))>>i)>>7 |
-    ((mask[0] & (1<<i))>>i)>>6 |
-    ((mask[1] & (1<<i))>>i)>>5 |
-    ((mask[1] & (1<<i))>>i)>>4 |
-    ((mask[2] & (1<<i))>>i)>>3 |
-    ((mask[2] & (1<<i))>>i)>>2 |
-    ((mask[3] & (1<<i))>>i)>>1 |
-    ((mask[3] & (1<<i))>>i)>>0;
+    ((mask[0]>>i) & 1)<<0 |
+    ((mask[0]>>i) & 1)<<1 |
+    ((mask[1]>>i) & 1)<<2 |
+    ((mask[1]>>i) & 1)<<3 |
+    ((mask[2]>>i) & 1)<<4 |
+    ((mask[2]>>i) & 1)<<5 |
+    ((mask[3]>>i) & 1)<<6 |
+    ((mask[3]>>i) & 1)<<7;
     
     _lineB = 0;
     _lineB =
-    ((mask[4] & (1<<i))>>i)>>7 |
-    ((mask[4] & (1<<i))>>i)>>6 |
-    ((mask[5] & (1<<i))>>i)>>5 |
-    ((mask[5] & (1<<i))>>i)>>4 |
-    ((mask[6] & (1<<i))>>i)>>3 |
-    ((mask[6] & (1<<i))>>i)>>2 |
-    ((mask[7] & (1<<i))>>i)>>1 |
-    ((mask[7] & (1<<i))>>i)>>0;
+    ((mask[4]>>i) & 1)<<0 |
+    ((mask[4]>>i) & 1)<<1 |
+    ((mask[5]>>i) & 1)<<2 |
+    ((mask[5]>>i) & 1)<<3 |
+    ((mask[6]>>i) & 1)<<4 |
+    ((mask[6]>>i) & 1)<<5 |
+    ((mask[7]>>i) & 1)<<6 |
+    ((mask[7]>>i) & 1)<<7;
     
     shiftOutDual(PIN_CLOCK, PIN_DATA_A, PIN_DATA_B, MSBFIRST, _lineA, _lineB);
     shiftOutDual(PIN_CLOCK, PIN_DATA_A, PIN_DATA_B, MSBFIRST, _lineA, _lineB);
+    
+    //printBits(_lineB);
+    //Serial.println();
   }
 }
 
+WiFiEventHandler e1, e2;
 void setup()
-{
-  static WiFiEventHandler e1, e2;
+{  
   Serial.begin(115200);
   
   pinMode(PIN_CLOCK, OUTPUT);
   pinMode(PIN_DATA_A, OUTPUT);
   pinMode(PIN_DATA_B, OUTPUT);
   pinMode(PIN_STROBE, OUTPUT);
-  //analogWrite(PIN_STROBE, 192);
-  digitalWrite(PIN_STROBE, HIGH);
+  analogWrite(PIN_STROBE, 255);
+  //digitalWrite(PIN_STROBE, HIGH);
 
 
 //  static WiFiEventHandler e1, e2;
@@ -234,18 +278,23 @@ void setup()
         Serial.println("Invalid NTP server address");
     }
     else {
-      Serial.print("Got NTP time: ");
-      Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
+      //Serial.print("Got NTP time: ");
+      //Serial.println(NTP.getTimeDateString(NTP.getLastNTPSync()));
     }
   });
+
+  Serial.println("setting onEvent");
   WiFi.onEvent([](WiFiEvent_t e) {
     Serial.printf("Event wifi -----> %d\n", e);
   });
+  Serial.println("setting e1");
   e1 = WiFi.onStationModeGotIP(onSTAGotIP);// As soon WiFi is connected, start NTP Client
+  onSTAGotIP2();
   e2 = WiFi.onStationModeDisconnected(onSTADisconnected);
-  
 }
 
+
+bool bSeoul = false;
 
 void loop()
 {
@@ -257,9 +306,14 @@ void loop()
   //every 600 seconds, show Seoul time and date for 120 seconds
   if ((millis() - lastMillis) > 1000) {
     lastMillis = millis();
-    bool bSeoul = false;
-    if(counter%600<120){
+
+    if(counter%600==120){
       bSeoul = true;
+      NTP.setTimeZone(9);
+    }
+    if(counter%600==240){
+      bSeoul = false;
+      NTP.setTimeZone(-5);
     }
     if(counter%120<5){
       showDate(bSeoul);
